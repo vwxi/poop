@@ -10,6 +10,7 @@
  * return convention: 0 is OK, anything under 0 is an error
  */
 
+#include <SDL_timer.h>
 #define DEBUG
 
 #include "glad/glad.h"
@@ -26,6 +27,9 @@
 #include "modplay.h"
 #include "scene.h"
 
+#define WIDTH 640
+#define HEIGHT 480
+
 #ifdef DEBUG
 #   define GLE(x) do { \
         x; \
@@ -40,7 +44,9 @@
 
 #define NUM_SCENES 1
 
-static float TRIANGLE[] = {
+const static GLfloat RESOLUTION[2] = { WIDTH, HEIGHT };
+
+static GLfloat TRIANGLE[] = {
     -0.5f, -0.5f, 0.0f,
     0.5f, -0.5f, 0.0f,
     0.0f,  0.5f, 0.0f
@@ -63,9 +69,23 @@ static struct p_scene SCENES[NUM_SCENES] = {
         },
         .fragment_shader_source = {
             "#version 330 core\n \
+            #define PI 3.14159265\n\
+            uniform float time;\n\
+            uniform vec2 res;\n\
             out vec4 FragColor;\n \
             void main() {\n \
-                FragColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);\n \
+                vec2 coord = gl_FragCoord.xy / res.xy;\n\
+                float v = sin(coord.x * 10.0 + time);\n\
+                v += -sin(3.0 * (coord.x * sin(time) + coord.y * cos(time)) + time);\n\
+                float cx = coord.x + 0.5 * sin(time / 5.0);\n\
+                float cy = coord.y + 0.5 * cos(time / 3.0);\n\
+                v += sin(sqrt(10.0 * (cx*cx + cy*cy) + 1.0) + time);\n\
+                vec3 color = vec3(\n\
+                    sin(v*PI),\n\
+                    sin(v*PI+2.0*PI/3.0),\n\
+                    sin(v*PI+4.0*PI/3.0)\n\
+                );\n\
+                FragColor = vec4(color*0.5 + 0.5, 1.0);\n \
             } \
             "
         },
@@ -109,8 +129,8 @@ int p_init() {
 	    "poop",
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
-		640,
-		480,
+		WIDTH,
+		HEIGHT,
 		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
 	);
 
@@ -130,7 +150,7 @@ int p_init() {
 	SDL_GL_SetSwapInterval(1);
 
 	SDL_GetWindowPosition(window, &x, &y);
-	glViewport(0, 0, 640, 480);
+	glViewport(0, 0, WIDTH, HEIGHT);
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 	if((err = p_setup()) < 0) {
@@ -216,6 +236,8 @@ int p_setup() {
         }
         #endif
 
+        // setup VAO, VBO
+
         GLE(glGenVertexArrays(1, &s->vao));
         GLE(glGenBuffers(1, &s->vbo));
 
@@ -224,11 +246,13 @@ int p_setup() {
         GLE(glBindBuffer(GL_ARRAY_BUFFER, s->vbo));
         GLE(glBufferData(GL_ARRAY_BUFFER, s->sz_vertices, s->vertices, GL_STATIC_DRAW));
 
-        GLE({
-            GLint pos_attrib = glGetAttribLocation(s->program_id, "position");
-            GLE(glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 0, 0));
-            GLE(glEnableVertexAttribArray(pos_attrib));
-        });
+        // setup attributes
+
+        GLint pos_attrib = glGetAttribLocation(s->program_id, "position");
+        GLE(glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, 0, 0));
+        GLE(glEnableVertexAttribArray(pos_attrib));
+
+        // reset for good measure
 
         GLE(glBindBuffer(GL_ARRAY_BUFFER, 0));
         GLE(glBindVertexArray(0));
@@ -251,6 +275,11 @@ void p_render(size_t scene) {
 
     GLE(glUseProgram(SCENES[scene].program_id));
     GLE(glBindVertexArray(SCENES[scene].vao));
+
+    float time = (float)SDL_GetTicks64() * 0.0005;
+    GLE(glUniform1f(glGetUniformLocation(SCENES[scene].program_id, "time"), time));
+    GLE(glUniform2fv(glGetUniformLocation(SCENES[scene].program_id, "res"), 1, &RESOLUTION[0]));
+
     GLE(glDrawArrays(GL_TRIANGLES, 0, 3));
     GLE(glBindVertexArray(0));
 }
