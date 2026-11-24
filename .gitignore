@@ -40,4 +40,5 @@ CMakeUserPresets.json
 
 *-prefix/
 
-build
+build/
+.cache/

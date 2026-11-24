@@ -1,11 +1,17 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.3.3)
 
 project(Poop VERSION "0.1.0" DESCRIPTION "Demo" LANGUAGES "C")
 
-find_package(OpenGL)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(OpenGL_GL_PREFERENCE GLVND)
+
+find_package(OpenGL REQUIRED)
+find_package(SDL2 REQUIRED)
 
 list(APPEND source_files
   src/main.c
+  src/glad.c
+  src/modplay.c
 )
 
 list(APPEND include_folders
@@ -15,7 +21,12 @@ list(APPEND include_folders
 
 list(APPEND link_libraries
   OpenGL::OpenGL
+  SDL2::SDL2
 )
+
+if(TARGET SDL2::SDL2main)
+  list(APPEND link_libraries SDL2::SDL2main)
+endif()
 
 add_executable(Poop ${source_files})
 target_include_directories(Poop PUBLIC ${include_folders})
